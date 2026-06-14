@@ -1,0 +1,14 @@
+{
+  "name": "Petra Zábranská — Správa nemovitostí",
+  "short_name": "Nemovitosti",
+  "description": "Správa realitních nabídek — Petra Zábranská",
+  "display": "standalone",
+  "start_url": ".",
+  "scope": ".",
+  "background_color": "#0d0d0f",
+  "theme_color": "#0d0d0f",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
