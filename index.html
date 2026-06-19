@@ -156,9 +156,6 @@
   .b-sold{background:rgba(217,106,106,.14);color:#e3a3a3;border:1px solid #6f3838}
   .pill{font-size:11.5px;padding:2px 8px;border-radius:7px;background:var(--panel-2);border:1px solid var(--line-soft);color:var(--muted)}
 
-  .maps-link{font-size:12.5px;color:var(--muted);text-decoration:none;display:inline-flex;align-items:center;gap:3px;transition:.15s color}
-  .maps-link:hover{color:var(--gold-bright)}
-
   .empty{text-align:center;padding:70px 20px;color:var(--muted)}
   .empty h3{font-size:22px;color:var(--text);margin-bottom:8px}
 
@@ -336,11 +333,6 @@
           <label>Lokalita *</label>
           <input type="text" id="f_location" placeholder="Praha-západ – Jesenice" />
         </div>
-      </div>
-      <div class="field">
-        <label>Přesná adresa (odkaz na mapu)</label>
-        <input type="text" id="f_address" placeholder="Příkladová 12, Praha 5" />
-        <div class="hint">Zobrazí se jako odkaz na Google Maps v přehledu nemovitostí.</div>
       </div>
       <div class="grid3">
         <div class="field">
@@ -546,7 +538,6 @@ function renderList(){
           ${i.disposition?`<span class="pill">${escapeHtml(i.disposition)}</span>`:''}
           ${i.area_m2?`<span class="pill">${i.area_m2} m²</span>`:''}
           <span class="price">${fmtPrice(i.price,i.price_note)}</span>
-          ${i.address?`<a class="maps-link" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(i.address)}" target="_blank" rel="noopener">📍 ${escapeHtml(i.address)}</a>`:''}
         </div>
       </div>
       <div class="actions">
@@ -597,7 +588,6 @@ function openEditor(item){
   $("f_price").value = item?.price ?? "";
   $("f_price_note").value = item?.price_note || "";
   $("f_area").value = item?.area_m2 ?? "";
-  $("f_address").value = item?.address || "";
   $("f_description").value = item?.description || "";
   $("f_featured").checked = !!item?.featured;
   $("f_sort").value = item?.sort_order ?? "";
@@ -625,7 +615,7 @@ function renderPhotos(){
   g.innerHTML = photos.map((p,idx)=>`
     <div class="photo ${p.main?'main':''}">
       ${p.main?'<span class="main-tag">HLAVNÍ</span>':''}
-      <img src="${p.url}" alt="" onerror="this.style.opacity=.25" />
+      <img src="${p.preview || p.url}" alt="" onerror="this.style.opacity=.25" />
       <div class="ctr">
         <button class="rm" title="Odebrat" data-rm="${idx}">&times;</button>
         ${p.main?'':`<button class="set-main" data-main="${idx}">Nastavit jako hlavní</button>`}
@@ -638,44 +628,6 @@ function renderPhotos(){
   g.querySelectorAll("[data-main]").forEach(b=>b.addEventListener("click",()=>{
     photos.forEach(p=>p.main=false); photos[+b.dataset.main].main=true; renderPhotos();
   }));
-}
-
-/* ---------- komprese fotek ---------- */
-const MAX_PHOTO_BYTES = 1 * 1024 * 1024; // 1 MB
-const MAX_DIM = 2400; // px – delší strana
-
-function compressImage(file) {
-  if (file.size <= MAX_PHOTO_BYTES) return Promise.resolve(file);
-  return new Promise((resolve) => {
-    const img = new Image();
-    const blobUrl = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(blobUrl);
-      let { width, height } = img;
-      if (width > MAX_DIM || height > MAX_DIM) {
-        if (width >= height) { height = Math.round(height * MAX_DIM / width); width = MAX_DIM; }
-        else { width = Math.round(width * MAX_DIM / height); height = MAX_DIM; }
-      }
-      const canvas = document.createElement("canvas");
-      canvas.width = width; canvas.height = height;
-      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
-      let quality = 0.82;
-      const attempt = () => {
-        canvas.toBlob(blob => {
-          if (!blob) { resolve(file); return; }
-          if (blob.size <= MAX_PHOTO_BYTES || quality <= 0.12) {
-            resolve(new File([blob], file.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" }));
-          } else {
-            quality = Math.max(quality - 0.1, 0.12);
-            attempt();
-          }
-        }, "image/jpeg", quality);
-      };
-      attempt();
-    };
-    img.onerror = () => resolve(file);
-    img.src = blobUrl;
-  });
 }
 
 /* ---------- nahrávání fotek ---------- */
@@ -694,14 +646,14 @@ async function uploadFiles(fileList){
   up.innerHTML = `<span class="spin"></span> Nahrávám ${files.length} fotek…`;
   let ok=0, fail=0;
   for(const file of files){
-    const compressed = await compressImage(file);
-    const ext = compressed.name.split(".").pop() || "jpg";
+    const ext = (file.name.split(".").pop()||"jpg").toLowerCase();
     const path = `${base}/${Date.now()}-${Math.random().toString(36).slice(2,7)}.${ext}`;
-    const { error } = await sb.storage.from(BUCKET).upload(path, compressed, {cacheControl:"3600", upsert:false, contentType: compressed.type});
+    const { error } = await sb.storage.from(BUCKET).upload(path, file, {cacheControl:"3600", upsert:false});
     if(error){ fail++; console.error(error); continue; }
     const { data } = sb.storage.from(BUCKET).getPublicUrl(path);
-    photos.push({url:data.publicUrl, main: photos.length===0});
+    photos.push({url:data.publicUrl, preview:URL.createObjectURL(file), main: photos.length===0});
     ok++;
+    renderPhotos();
   }
   up.innerHTML = "⬆ Nahrát fotky z počítače (lze vybrat víc najednou)";
   $("fileInput").value = "";
@@ -741,7 +693,6 @@ async function save(){
     price: $("f_price").value === "" ? null : parseInt($("f_price").value,10),
     price_note: $("f_price_note").value.trim() || null,
     area_m2: $("f_area").value === "" ? null : parseInt($("f_area").value,10),
-    address: $("f_address").value.trim() || null,
     description: $("f_description").value.trim() || null,
     main_image: mainPhoto.url,
     images: photos.map(p=>p.url),
