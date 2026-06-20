@@ -147,7 +147,11 @@
   .row .info .t{font-weight:600;font-size:15.5px;display:flex;align-items:center;gap:8px}
   .row .info .sub{color:var(--muted);font-size:13px;margin-top:3px;display:flex;gap:10px;flex-wrap:wrap}
   .price{font-family:'Playfair Display',serif;color:var(--gold-bright);font-weight:600}
-  .row .actions{display:flex;gap:8px}
+  .row .actions{display:flex;gap:8px;align-items:center}
+  .icon-btn{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);width:34px;height:34px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;font-size:15px;line-height:1;transition:.16s border-color,.16s color,.16s background;flex:0 0 auto}
+  .icon-btn:hover{border-color:#3a3a42;color:var(--text)}
+  .icon-btn.star-btn.on{color:var(--gold);border-color:var(--gold);background:var(--gold-dim)}
+  .icon-btn.danger:hover{border-color:#7a3b3b;color:#e79a9a;background:rgba(217,106,106,.1)}
   .star{color:var(--gold);font-size:14px}
 
   .badge{font-size:11.5px;padding:3px 9px;border-radius:999px;font-weight:600;letter-spacing:.2px;white-space:nowrap}
@@ -542,12 +546,40 @@ function renderList(){
       </div>
       <div class="actions">
         <span class="badge b-${i.status}">${STATUS_CZ[i.status]||i.status}</span>
+        <button class="icon-btn star-btn ${i.featured?'on':''}" data-feature="${i.id}" title="${i.featured?'Zrušit doporučení':'Označit jako doporučenou'}">★</button>
         <button class="btn btn-sm" data-edit="${i.id}">Upravit</button>
+        <button class="icon-btn danger" data-del="${i.id}" title="Smazat nemovitost" aria-label="Smazat">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>
+        </button>
       </div>
     </div>`).join("");
   document.querySelectorAll("[data-edit]").forEach(b=>{
     b.addEventListener("click", ()=> openEditor(allItems.find(x=>x.id===b.dataset.edit)));
   });
+  document.querySelectorAll("[data-feature]").forEach(b=>{
+    b.addEventListener("click", ()=> toggleFeatured(b.dataset.feature));
+  });
+  document.querySelectorAll("[data-del]").forEach(b=>{
+    b.addEventListener("click", ()=> deleteFromList(b.dataset.del));
+  });
+}
+
+async function toggleFeatured(id){
+  const item = allItems.find(x=>x.id===id);
+  if(!item) return;
+  const { error } = await sb.from(TABLE).update({ featured: !item.featured }).eq("id", id);
+  if(error){ toast("Změna se nezdařila: " + error.message, "err"); return; }
+  toast(item.featured ? "Doporučení zrušeno" : "Označeno jako doporučené", "ok");
+  loadList();
+}
+async function deleteFromList(id){
+  const item = allItems.find(x=>x.id===id);
+  if(!item) return;
+  if(!confirm("Opravdu smazat nemovitost \u201E" + item.title + "\u201C? Tuto akci nelze vrátit.")) return;
+  const { error } = await sb.from(TABLE).delete().eq("id", id);
+  if(error){ toast("Smazání selhalo: " + error.message, "err"); return; }
+  toast("Nemovitost smazána", "ok");
+  loadList();
 }
 function escapeHtml(s){ return (s||"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 
