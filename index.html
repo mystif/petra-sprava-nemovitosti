@@ -166,6 +166,11 @@
   .desc-preview p{margin:0 0 8px;font-size:14px;line-height:1.6}
   .desc-preview p:last-child{margin-bottom:0}
   .desc-preview .pv-empty{color:var(--muted);font-style:italic}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{padding:7px 13px;border-radius:999px;border:1px solid var(--line);background:var(--panel-2);color:var(--muted);font-size:13px;cursor:pointer;user-select:none;transition:.15s border-color,.15s color,.15s background}
+  .chip:hover{border-color:#3a3a42;color:var(--text)}
+  .chip.on{background:var(--gold-dim);border-color:var(--gold);color:var(--gold-bright)}
+  label .opt{color:var(--muted);font-weight:400;font-size:11px}
   .icon-btn{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);width:34px;height:34px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;font-size:15px;line-height:1;transition:.16s border-color,.16s color,.16s background;flex:0 0 auto}
   .icon-btn:hover{border-color:#3a3a42;color:var(--text)}
   .icon-btn.star-btn.on{color:var(--gold);border-color:var(--gold);background:var(--gold-dim)}
@@ -357,7 +362,18 @@
           <input type="text" id="f_location" placeholder="Praha-západ – Jesenice" />
         </div>
       </div>
+      <div class="field">
+        <label>Přesná adresa <span class="opt">(pro mapu na webu)</span></label>
+        <input type="text" id="f_address" placeholder="Na Úvozu 297, Praha-západ" />
+      </div>
       <div class="grid3">
+        <div class="field">
+          <label>Nabídka</label>
+          <select id="f_offer_type">
+            <option value="sale">Prodej</option>
+            <option value="rent">Pronájem</option>
+          </select>
+        </div>
         <div class="field">
           <label>Typ *</label>
           <select id="f_type">
@@ -368,18 +384,83 @@
           </select>
         </div>
         <div class="field">
-          <label>Stav</label>
+          <label>Stav nabídky</label>
           <select id="f_status">
             <option value="available">Volné</option>
             <option value="reserved">Rezervováno</option>
             <option value="sold">Prodáno</option>
           </select>
         </div>
+      </div>
+      <div class="grid3">
         <div class="field">
           <label>Dispozice</label>
           <input type="text" id="f_disposition" placeholder="3+kk" />
         </div>
+        <div class="field">
+          <label>Č. zakázky</label>
+          <input type="text" id="f_reference_number" placeholder="PZ-2024-001" />
+        </div>
+        <div class="field">
+          <label>K dispozici od</label>
+          <input type="text" id="f_available_from" placeholder="Ihned / Dohodou / 1. 9. 2026" />
+        </div>
       </div>
+
+      <div class="section-label">Parametry a stav nemovitosti</div>
+      <div class="grid3">
+        <div class="field">
+          <label>Užitná plocha (m²)</label>
+          <input type="number" id="f_area" placeholder="220" />
+        </div>
+        <div class="field">
+          <label>Plocha pozemku (m²)</label>
+          <input type="number" id="f_land_area" placeholder="780" />
+        </div>
+        <div class="field">
+          <label>Energetická třída</label>
+          <select id="f_energy_class"></select>
+        </div>
+      </div>
+      <div class="grid3">
+        <div class="field">
+          <label>Podlaží</label>
+          <input type="text" id="f_floor" placeholder="3. patro" />
+        </div>
+        <div class="field">
+          <label>Počet podlaží</label>
+          <input type="number" id="f_total_floors" placeholder="5" />
+        </div>
+        <div class="field">
+          <label>Stav nemovitosti</label>
+          <select id="f_condition"></select>
+        </div>
+      </div>
+      <div class="grid3">
+        <div class="field">
+          <label>Konstrukce</label>
+          <select id="f_construction"></select>
+        </div>
+        <div class="field">
+          <label>Vlastnictví</label>
+          <select id="f_ownership"></select>
+        </div>
+        <div class="field">
+          <label>Rok výstavby</label>
+          <input type="number" id="f_year_built" placeholder="2022" />
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label>Rok rekonstrukce</label>
+          <input type="number" id="f_year_renovated" placeholder="2021" />
+        </div>
+      </div>
+
+      <div class="section-label">Vybavení</div>
+      <div class="chips" id="featuresChips"></div>
+
+      <div class="section-label">Cena</div>
       <div class="grid3">
         <div class="field">
           <label>Cena (Kč)</label>
@@ -390,8 +471,8 @@
           <input type="text" id="f_price_note" placeholder="k jednání / info v RK" />
         </div>
         <div class="field">
-          <label>Plocha (m²)</label>
-          <input type="number" id="f_area" placeholder="220" />
+          <label>Měsíční náklady</label>
+          <input type="text" id="f_monthly_costs" placeholder="4 500 Kč / měsíc" />
         </div>
       </div>
       <div class="field">
@@ -462,6 +543,12 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const $ = (id) => document.getElementById(id);
 const TYPE_CZ = {house:"Dům", apartment:"Byt", commercial:"Komerční", land:"Pozemek"};
 const STATUS_CZ = {available:"Volné", reserved:"Rezervováno", sold:"Prodáno"};
+const OFFER_CZ = {sale:"Prodej", rent:"Pronájem"};
+const CONDITION_OPTS = [["new","Novostavba"],["very_good","Velmi dobrý"],["good","Dobrý"],["after_reconstruction","Po rekonstrukci"],["before_reconstruction","Před rekonstrukcí"],["under_construction","Ve výstavbě"],["project","Projekt"]];
+const CONSTRUCTION_OPTS = [["brick","Cihla"],["panel","Panel"],["wood","Dřevostavba"],["stone","Kámen"],["mixed","Smíšená"],["prefab","Montovaná"],["skeleton","Skelet"]];
+const OWNERSHIP_OPTS = [["personal","Osobní"],["cooperative","Družstevní"],["state","Státní / obecní"],["other","Jiné"]];
+const FEATURE_OPTS = [["balcony","Balkon"],["terrace","Terasa"],["loggia","Lodžie"],["garden","Zahrada"],["garage","Garáž"],["parking","Parkování"],["cellar","Sklep"],["elevator","Výtah"],["pool","Bazén"],["furnished","Vybaveno"],["air_conditioning","Klimatizace"],["barrier_free","Bezbariérové"]];
+const ENERGY_OPTS = ["A","B","C","D","E","F","G"];
 
 function fmtPrice(p, note){
   if(p == null || p === "") return note ? note : "Cena na vyžádání";
@@ -739,6 +826,21 @@ function openEditor(item){
   updateDescMeta();
   $("f_featured").checked = !!item?.featured;
   $("f_sort").value = item?.sort_order ?? "";
+  $("f_address").value = item?.address || "";
+  $("f_offer_type").value = item?.offer_type || "sale";
+  $("f_reference_number").value = item?.reference_number || "";
+  $("f_available_from").value = item?.available_from || "";
+  $("f_land_area").value = item?.land_area_m2 ?? "";
+  $("f_energy_class").value = item?.energy_class || "";
+  $("f_floor").value = item?.floor || "";
+  $("f_total_floors").value = item?.total_floors ?? "";
+  $("f_condition").value = item?.condition || "";
+  $("f_construction").value = item?.construction || "";
+  $("f_ownership").value = item?.ownership || "";
+  $("f_year_built").value = item?.year_built ?? "";
+  $("f_year_renovated").value = item?.year_renovated ?? "";
+  $("f_monthly_costs").value = item?.monthly_costs || "";
+  { const feats = new Set(item?.features || []); $("featuresChips").querySelectorAll(".chip").forEach(ch=> ch.classList.toggle("on", feats.has(ch.dataset.feat))); }
 
   // fotky: spojit main_image + images, bez duplicit
   photos = [];
@@ -897,6 +999,21 @@ async function save(){
     price: $("f_price").value === "" ? null : parseInt($("f_price").value,10),
     price_note: $("f_price_note").value.trim() || null,
     area_m2: $("f_area").value === "" ? null : parseInt($("f_area").value,10),
+    offer_type: $("f_offer_type").value,
+    address: $("f_address").value.trim() || null,
+    reference_number: $("f_reference_number").value.trim() || null,
+    available_from: $("f_available_from").value.trim() || null,
+    land_area_m2: $("f_land_area").value === "" ? null : parseInt($("f_land_area").value,10),
+    energy_class: $("f_energy_class").value || null,
+    floor: $("f_floor").value.trim() || null,
+    total_floors: $("f_total_floors").value === "" ? null : parseInt($("f_total_floors").value,10),
+    condition: $("f_condition").value || null,
+    construction: $("f_construction").value || null,
+    ownership: $("f_ownership").value || null,
+    year_built: $("f_year_built").value === "" ? null : parseInt($("f_year_built").value,10),
+    year_renovated: $("f_year_renovated").value === "" ? null : parseInt($("f_year_renovated").value,10),
+    monthly_costs: $("f_monthly_costs").value.trim() || null,
+    features: Array.from($("featuresChips").querySelectorAll(".chip.on")).map(c=>c.dataset.feat),
     description: $("f_description").value.trim() || null,
     main_image: mainPhoto.url,
     images: photos.map(p=>p.url),
@@ -942,6 +1059,20 @@ $("deleteBtn").addEventListener("click", async ()=>{
 
 document.addEventListener("keydown", e=>{ if(e.key==="Escape" && $("overlay").classList.contains("open")) closeEditor(); });
 
+function fillSelect(id, opts, emptyLabel){
+  const el=$(id); let html = emptyLabel!=null ? '<option value="">'+emptyLabel+'</option>' : "";
+  html += opts.map(o=> Array.isArray(o) ? '<option value="'+o[0]+'">'+o[1]+'</option>' : '<option value="'+o+'">'+o+'</option>').join("");
+  el.innerHTML = html;
+}
+function initFieldOptions(){
+  fillSelect("f_energy_class", ENERGY_OPTS, "—");
+  fillSelect("f_condition", CONDITION_OPTS, "—");
+  fillSelect("f_construction", CONSTRUCTION_OPTS, "—");
+  fillSelect("f_ownership", OWNERSHIP_OPTS, "—");
+  $("featuresChips").innerHTML = FEATURE_OPTS.map(o=> '<span class="chip" data-feat="'+o[0]+'">'+o[1]+'</span>').join("");
+  $("featuresChips").querySelectorAll(".chip").forEach(ch=> ch.addEventListener("click", ()=> ch.classList.toggle("on")));
+}
+initFieldOptions();
 init();
 </script>
 </body>
