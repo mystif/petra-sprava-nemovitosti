@@ -138,7 +138,7 @@
   /* ---------- List ---------- */
   .list{display:flex;flex-direction:column;gap:12px}
   .row{
-    display:grid;grid-template-columns:84px 1fr auto;gap:18px;align-items:center;
+    display:grid;grid-template-columns:22px 84px 1fr auto;gap:14px;align-items:center;
     background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;
     transition:.16s border-color,.16s background;
   }
@@ -148,6 +148,24 @@
   .row .info .sub{color:var(--muted);font-size:13px;margin-top:3px;display:flex;gap:10px;flex-wrap:wrap}
   .price{font-family:'Playfair Display',serif;color:var(--gold-bright);font-weight:600}
   .row .actions{display:flex;gap:8px;align-items:center}
+  .row.dragging{opacity:.4}
+  .row.drag-over{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold-dim)}
+  .grip{cursor:grab;color:var(--muted);display:flex;align-items:center;justify-content:center;user-select:none;flex:0 0 auto}
+  .grip:active{cursor:grabbing}
+  .grip.nodrag{cursor:default;opacity:.3}
+  .badge.clickable{cursor:pointer}
+  .badge.clickable:hover{filter:brightness(1.15)}
+  .photo{cursor:grab}
+  .photo:active{cursor:grabbing}
+  .photo.dragging{opacity:.4}
+  .photo.drag-over{outline:2px dashed var(--gold);outline-offset:2px}
+  .desc-meta{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:6px}
+  .desc-count{font-size:11.5px;color:var(--muted);white-space:nowrap}
+  .desc-preview{margin-top:8px;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:10px;padding:12px 14px}
+  .desc-preview .pv-label{font-size:10.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--gold);margin-bottom:6px}
+  .desc-preview p{margin:0 0 8px;font-size:14px;line-height:1.6}
+  .desc-preview p:last-child{margin-bottom:0}
+  .desc-preview .pv-empty{color:var(--muted);font-style:italic}
   .icon-btn{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);width:34px;height:34px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;font-size:15px;line-height:1;transition:.16s border-color,.16s color,.16s background;flex:0 0 auto}
   .icon-btn:hover{border-color:#3a3a42;color:var(--text)}
   .icon-btn.star-btn.on{color:var(--gold);border-color:var(--gold);background:var(--gold-dim)}
@@ -232,6 +250,7 @@
     .stats{grid-template-columns:1fr 1fr}
     .grid2,.grid3{grid-template-columns:1fr}
     .row{grid-template-columns:64px 1fr;gap:12px}
+    .grip{display:none}
     .row .actions{grid-column:1/-1;justify-content:flex-end}
     .thumb{width:64px;height:52px}
     .search input{width:160px}
@@ -378,10 +397,18 @@
       <div class="field">
         <label>Popis</label>
         <textarea id="f_description" placeholder="Popis nemovitosti, dispozice, okolí, vybavení…"></textarea>
+        <div class="desc-meta">
+          <span class="hint">Prázdný řádek = nový odstavec.</span>
+          <span class="desc-count" id="descCount">0 znaků</span>
+        </div>
+        <div class="desc-preview" id="descPreview" style="display:none">
+          <div class="pv-label">Náhled popisu</div>
+          <div id="descPreviewBody"></div>
+        </div>
       </div>
 
       <div class="section-label">Fotografie</div>
-      <div class="hint">První / označená fotka je hlavní (zobrazí se v náhledu). Klikněte na fotku pro nastavení hlavní.</div>
+      <div class="hint">Hlavní fotka (★) se zobrazí jako náhled nabídky. Přetažením změníte pořadí, tlačítkem „Nastavit jako hlavní" určíte hlavní.</div>
       <div class="photos" id="photoGrid"></div>
       <div class="uploader" id="uploader">
         <input type="file" id="fileInput" accept="image/*" multiple hidden />
@@ -518,6 +545,7 @@ function renderList(){
   const q = $("search").value.trim().toLowerCase();
   const fs = $("filterStatus").value;
   const ft = $("filterType").value;
+  const canDrag = !q && !fs && !ft;
   let items = allItems.filter(i=>{
     if(fs && i.status!==fs) return false;
     if(ft && i.property_type!==ft) return false;
@@ -532,8 +560,9 @@ function renderList(){
     return;
   }
   $("listArea").innerHTML = items.map(i=>`
-    <div class="row">
-      <img class="thumb" src="${i.main_image||''}" alt="" onerror="this.style.opacity=.3;this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22/>'" />
+    <div class="row" data-id="${i.id}" draggable="${canDrag?'true':'false'}">
+      <span class="grip ${canDrag?'':'nodrag'}" title="${canDrag?'Přetažením změníte pořadí':'Řazení jde jen bez hledání a filtrů'}" aria-hidden="true"><svg width="13" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="5" r="1.7"/><circle cx="15" cy="5" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="19" r="1.7"/><circle cx="15" cy="19" r="1.7"/></svg></span>
+      <img class="thumb" src="${i.main_image||''}" alt="" draggable="false" onerror="this.style.opacity=.3;this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22/>'" />
       <div class="info">
         <div class="t">${escapeHtml(i.title)} ${i.featured?'<span class="star" title="Doporučená">★</span>':''}</div>
         <div class="sub">
@@ -545,7 +574,7 @@ function renderList(){
         </div>
       </div>
       <div class="actions">
-        <span class="badge b-${i.status}">${STATUS_CZ[i.status]||i.status}</span>
+        <span class="badge b-${i.status} clickable" data-status="${i.id}" title="Kliknutím změníte stav">${STATUS_CZ[i.status]||i.status}</span>
         <button class="icon-btn star-btn ${i.featured?'on':''}" data-feature="${i.id}" title="${i.featured?'Zrušit doporučení':'Označit jako doporučenou'}">★</button>
         <button class="btn btn-sm" data-edit="${i.id}">Upravit</button>
         <button class="icon-btn danger" data-del="${i.id}" title="Smazat nemovitost" aria-label="Smazat">
@@ -562,6 +591,10 @@ function renderList(){
   document.querySelectorAll("[data-del]").forEach(b=>{
     b.addEventListener("click", ()=> deleteFromList(b.dataset.del));
   });
+  document.querySelectorAll("[data-status]").forEach(b=>{
+    b.addEventListener("click", ()=> cycleStatus(b.dataset.status));
+  });
+  if(canDrag) setupRowDnD();
 }
 
 async function toggleFeatured(id){
@@ -578,9 +611,91 @@ async function deleteFromList(id){
   if(!confirm("Opravdu smazat nemovitost \u201E" + item.title + "\u201C? Tuto akci nelze vrátit.")) return;
   const { error } = await sb.from(TABLE).delete().eq("id", id);
   if(error){ toast("Smazání selhalo: " + error.message, "err"); return; }
+  await purgeStorage(item);
   toast("Nemovitost smazána", "ok");
   loadList();
 }
+const STATUS_CYCLE = ["available","reserved","sold"];
+async function cycleStatus(id){
+  const item = allItems.find(x=>x.id===id);
+  if(!item) return;
+  const next = STATUS_CYCLE[(STATUS_CYCLE.indexOf(item.status)+1) % STATUS_CYCLE.length];
+  const { error } = await sb.from(TABLE).update({ status: next }).eq("id", id);
+  if(error){ toast("Změna stavu selhala: " + error.message, "err"); return; }
+  item.status = next;
+  renderList();
+  toast("Stav: " + STATUS_CZ[next], "ok");
+}
+
+function setupRowDnD(){
+  let dragId = null;
+  const rows = Array.from(document.querySelectorAll('.row[draggable="true"]'));
+  rows.forEach(row=>{
+    row.addEventListener("dragstart", e=>{
+      dragId = row.dataset.id; row.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      try{ e.dataTransfer.setData("text/plain", dragId); }catch(_){}
+    });
+    row.addEventListener("dragend", ()=>{ row.classList.remove("dragging"); rows.forEach(r=>r.classList.remove("drag-over")); });
+    row.addEventListener("dragover", e=>{ e.preventDefault(); e.dataTransfer.dropEffect="move"; });
+    row.addEventListener("dragenter", e=>{ e.preventDefault(); if(row.dataset.id!==dragId) row.classList.add("drag-over"); });
+    row.addEventListener("dragleave", ()=> row.classList.remove("drag-over"));
+    row.addEventListener("drop", e=>{
+      e.preventDefault(); row.classList.remove("drag-over");
+      if(dragId && row.dataset.id!==dragId) reorderListings(dragId, row.dataset.id);
+    });
+  });
+}
+async function reorderListings(dragId, targetId){
+  const ids = allItems.map(x=>x.id);
+  const from = ids.indexOf(dragId), to = ids.indexOf(targetId);
+  if(from<0 || to<0) return;
+  const arr = allItems.slice();
+  const [moved] = arr.splice(from,1);
+  arr.splice(to,0,moved);
+  arr.forEach((it,idx)=> it.sort_order = idx);
+  allItems = arr;
+  renderList();
+  const results = await Promise.all(arr.map((it,idx)=> sb.from(TABLE).update({ sort_order: idx }).eq("id", it.id)));
+  const bad = results.find(r=>r.error);
+  if(bad){ toast("Uložení pořadí selhalo: " + bad.error.message, "err"); loadList(); }
+  else toast("Pořadí uloženo", "ok");
+}
+
+function storagePaths(item){
+  const urls = [item.main_image].concat(item.images || []).filter(Boolean);
+  const marker = "/storage/v1/object/public/" + BUCKET + "/";
+  const set = new Set();
+  urls.forEach(u=>{
+    const i = u.indexOf(marker);
+    if(i >= 0){
+      let p = u.slice(i + marker.length).split("?")[0];
+      try{ p = decodeURIComponent(p); }catch(_){}
+      set.add(p);
+    }
+  });
+  return Array.from(set);
+}
+async function purgeStorage(item){
+  const paths = storagePaths(item);
+  if(paths.length){ try{ await sb.storage.from(BUCKET).remove(paths); }catch(_){} }
+}
+
+function plural(n, one, few, many){ if(n===1) return one; if(n>=2 && n<=4) return few; return many; }
+function renderDescPreview(text){
+  const t = (text||"").trim();
+  if(!t) return '<p class="pv-empty">Zatím bez popisu…</p>';
+  return t.split(/\n{2,}/).map(par=> "<p>"+escapeHtml(par).replace(/\n/g,"<br>")+"</p>").join("");
+}
+function updateDescMeta(){
+  const v = $("f_description").value;
+  $("descCount").textContent = v.length + " " + plural(v.length, "znak", "znaky", "znaků");
+  const pv = $("descPreview");
+  if(v.trim()){ pv.style.display=""; $("descPreviewBody").innerHTML = renderDescPreview(v); }
+  else { pv.style.display="none"; }
+}
+$("f_description").addEventListener("input", updateDescMeta);
+
 function escapeHtml(s){ return (s||"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 
 $("search").addEventListener("input", renderList);
@@ -621,6 +736,7 @@ function openEditor(item){
   $("f_price_note").value = item?.price_note || "";
   $("f_area").value = item?.area_m2 ?? "";
   $("f_description").value = item?.description || "";
+  updateDescMeta();
   $("f_featured").checked = !!item?.featured;
   $("f_sort").value = item?.sort_order ?? "";
 
@@ -645,21 +761,38 @@ function renderPhotos(){
   const g = $("photoGrid");
   if(!photos.length){ g.innerHTML = ""; return; }
   g.innerHTML = photos.map((p,idx)=>`
-    <div class="photo ${p.main?'main':''}">
-      ${p.main?'<span class="main-tag">HLAVNÍ</span>':''}
-      <img src="${p.preview || p.url}" alt="" onerror="this.style.opacity=.25" />
+    <div class="photo ${p.main?'main':''}" draggable="true" data-idx="${idx}">
+      ${p.main?'<span class="main-tag">★ HLAVNÍ</span>':''}
+      <img src="${p.preview || p.url}" alt="" draggable="false" onerror="this.style.opacity=.25" />
       <div class="ctr">
         <button class="rm" title="Odebrat" data-rm="${idx}">&times;</button>
         ${p.main?'':`<button class="set-main" data-main="${idx}">Nastavit jako hlavní</button>`}
       </div>
     </div>`).join("");
-  g.querySelectorAll("[data-rm]").forEach(b=>b.addEventListener("click",()=>{
+  g.querySelectorAll("[data-rm]").forEach(b=>b.addEventListener("click",(e)=>{
+    e.stopPropagation();
     const i=+b.dataset.rm; const wasMain=photos[i].main; photos.splice(i,1);
     if(wasMain && photos.length) photos[0].main=true; renderPhotos();
   }));
-  g.querySelectorAll("[data-main]").forEach(b=>b.addEventListener("click",()=>{
+  g.querySelectorAll("[data-main]").forEach(b=>b.addEventListener("click",(e)=>{
+    e.stopPropagation();
     photos.forEach(p=>p.main=false); photos[+b.dataset.main].main=true; renderPhotos();
   }));
+  let dragI = null;
+  g.querySelectorAll(".photo").forEach(el=>{
+    el.addEventListener("dragstart", e=>{ dragI = +el.dataset.idx; el.classList.add("dragging"); e.dataTransfer.effectAllowed="move"; try{e.dataTransfer.setData("text/plain","p");}catch(_){} });
+    el.addEventListener("dragend", ()=>{ el.classList.remove("dragging"); g.querySelectorAll(".photo").forEach(x=>x.classList.remove("drag-over")); });
+    el.addEventListener("dragover", e=>{ e.preventDefault(); e.dataTransfer.dropEffect="move"; });
+    el.addEventListener("dragenter", e=>{ e.preventDefault(); if(+el.dataset.idx!==dragI) el.classList.add("drag-over"); });
+    el.addEventListener("dragleave", ()=> el.classList.remove("drag-over"));
+    el.addEventListener("drop", e=>{
+      e.preventDefault();
+      const to = +el.dataset.idx;
+      if(dragI===null || dragI===to) return;
+      const [m] = photos.splice(dragI,1); photos.splice(to,0,m);
+      renderPhotos();
+    });
+  });
 }
 
 /* ---------- komprese fotek ---------- */
@@ -797,9 +930,11 @@ $("deleteBtn").addEventListener("click", async ()=>{
   if(!editId) return;
   if(!confirm("Opravdu smazat tuto nemovitost? Tuto akci nelze vrátit.")) return;
   $("deleteBtn").disabled = true;
+  const item = allItems.find(x=>x.id===editId);
   const { error } = await sb.from(TABLE).delete().eq("id", editId);
   $("deleteBtn").disabled = false;
   if(error){ return showMsg($("editorMsg"), "Smazání selhalo: " + error.message, "error"); }
+  if(item) await purgeStorage(item);
   closeEditor();
   toast("Nemovitost smazána", "ok");
   loadList();
